@@ -70,5 +70,5 @@ The dataset used is publicly available from [Kaggle: Chest X-Ray Pneumonia Datas
 
 1. **Clone this repository:**
    ```bash
-   git clone https://github.com/a3il/pneumonia-xray-classification.git
+   git clone https://github.com/a3il/Pneumonia-Detection-UNet.git
    cd pneumonia-xray-classification
