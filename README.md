@@ -1,5 +1,7 @@
 # Pneumonia Detection and Classification using Chest X-Ray Images
 
+[Pneumonia_Detection.pdf](https://github.com/user-attachments/files/21613574/Pneumonia_Detection.pdf)
+
 ## 📌 Overview
 This project applies machine learning and deep learning techniques to detect and classify pneumonia from chest X-ray images. A custom Convolutional Neural Network (CNN) was developed for both binary and multi-class classification, alongside a Support Vector Machine (SVM) model for performance comparison. The CNN achieved up to **96% accuracy** in binary classification and over **92%** in multi-class classification tasks.
 
