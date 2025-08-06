@@ -1,0 +1,128 @@
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import itertools
+import csv
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.svm import SVC
+from sklearn.metrics import (
+    accuracy_score, confusion_matrix, classification_report,
+    f1_score, precision_score, recall_score
+)
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from imblearn.over_sampling import RandomOverSampler
+import joblib
+import ast
+
+def parse_numpy_array(s):
+    s = s.replace('e', 'E').replace('\n', ' ')  
+    s = ''.join(filter(lambda x: x.isdigit() or x in '. ,', s))
+    s = s.replace(',', ' ').replace('  ', ' ')
+    return np.fromstring(s, sep=' ', dtype=float)
+
+def load_data(csv_file):
+    data = pd.read_csv(csv_file)
+    
+    data['lbp_features'] = data['lbp_features'].apply(parse_numpy_array)
+    data['gabor_features'] = data['gabor_features'].apply(parse_numpy_array)
+    data['moments_features'] = data['moments_features'].apply(parse_numpy_array)
+    data['glcm_features'] = data['glcm_features'].apply(parse_numpy_array)
+    data['haralick_features'] = data['haralick_features'].apply(parse_numpy_array)
+    
+    label_encoder = LabelEncoder()
+    data['class_encoded'] = label_encoder.fit_transform(data['class'])
+    
+    return data, label_encoder
+
+def plot_confusion_matrix(cm, classes, normalize=False, title='Confusion matrix', cmap=plt.cm.Blues):
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.tight_layout()
+
+def train_evaluate_svm(data, label_encoder):
+    X_lbp = np.array(data['lbp_features'].tolist())  
+    X_gabor = np.array(data['gabor_features'].tolist())  
+    X_moments = np.array(data['moments_features'].tolist())
+    X_glcm = np.array(data['glcm_features'].tolist())
+    X_haralick = np.array(data['haralick_features'].tolist())
+    
+    X = np.concatenate((X_lbp, X_gabor, X_moments, X_glcm, X_haralick), axis=1)
+    
+    y = np.array(data['class_encoded'])
+
+    if np.any(np.isinf(X)) or np.any(np.isnan(X)):
+        return
+
+    if np.max(X) > 1e6:
+        return
+
+    over_sampler = RandomOverSampler(random_state=42)
+    X_resampled, y_resampled = over_sampler.fit_resample(X, y)
+
+    scaler = StandardScaler()
+    X_normalized = scaler.fit_transform(X_resampled)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_normalized, y_resampled, test_size=0.2, random_state=42)
+
+    best_params = {'C': 10000, 'kernel': 'rbf', 'gamma': 'scale'}
+ 
+    svm_classifier = SVC(C=best_params['C'], kernel=best_params['kernel'], gamma=best_params['gamma'], probability=True)
+
+    svm_classifier.fit(X_train, y_train)
+
+    y_pred = svm_classifier.predict(X_test)
+
+    accuracy = accuracy_score(y_test, y_pred)
+    conf_matrix = confusion_matrix(y_test, y_pred)
+    class_report = classification_report(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred, average='weighted')
+    precision = precision_score(y_test, y_pred, average='weighted')
+    recall = recall_score(y_test, y_pred, average='weighted')
+    specificity = recall_score(y_test, y_pred, average='macro')
+    ppv = precision_score(y_test, y_pred, average='macro')
+    npv = recall_score(y_test, y_pred, average='macro')
+
+    plt.figure()
+    plot_confusion_matrix(conf_matrix, classes=label_encoder.classes_, title='Confusion matrix, without normalization')
+    plt.show()
+
+    plt.figure()
+    plot_confusion_matrix(conf_matrix, classes=label_encoder.classes_, normalize=True, title='Confusion matrix, with normalization')
+    plt.show()
+
+    cv_scores = cross_val_score(svm_classifier, X_normalized, y_resampled, cv=5, scoring='f1_weighted', n_jobs=-1)
+    if not os.path.exists("E:/svmmetrics"):
+        os.makedirs("E:/svmmetrics")
+    
+    joblib.dump(svm_classifier, "E:/svmmetrics/svm_model.pkl")
+
+    plt.figure()
+    plot_confusion_matrix(conf_matrix, classes=label_encoder.classes_, title='Confusion matrix, without normalization')
+    plt.savefig("E:/svmmetrics/confusion_matrix.png")
+
+    plt.figure()
+    plot_confusion_matrix(conf_matrix, classes=label_encoder.classes_, normalize=True, title='Confusion matrix, with normalization')
+    plt.savefig("E:/svmmetrics/confusion_matrix_normalized.png")
+    plt.close()
+
+if __name__ == "__main__":
+    data, label_encoder = load_data("E:/all_features_after_parsing.csv")
+    train_evaluate_svm(data, label_encoder)
