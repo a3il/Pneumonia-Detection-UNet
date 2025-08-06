@@ -10,7 +10,7 @@ Pneumonia is a potentially life-threatening infection that causes inflammation i
 - Normal
 - Viral Pneumonia
 - Bacterial Pneumonia
-
+- Covid-19
 ---
 
 ## 🛠️ Tools & Technologies
